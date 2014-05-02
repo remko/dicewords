@@ -1,0 +1,12 @@
+/dist
+*.hi
+*.o
+*.hpc
+*.html
+*.tix
+*.aux
+*.hp
+*.prof
+*.ps
+Main
+/dicewords.txt
