@@ -6,11 +6,11 @@ synopsis: Generate DiceWare word lists
 description: Generate DiceWare word lists
 
 -- description:         
-homepage: http://el-tramo.be/dicewords
+homepage: https://el-tramo.be/dicewords
 license: MIT
 license-file: LICENSE
 author: Remko Tronçon
-maintainer: http://el-tramo.be
+maintainer: https://el-tramo.be
 
 -- copyright:           
 category: Security

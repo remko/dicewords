@@ -1,4 +1,4 @@
-# [DiceWords: Generate DiceWare word lists](http://el-tramo.be/dicewords)
+# [DiceWords: Generate DiceWare word lists](https://el-tramo.be/dicewords)
 
 ## About
 
