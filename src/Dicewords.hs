@@ -19,6 +19,9 @@ data Statistics = Statistics { averageWordLength::Float,
                                filteredWordCount :: Int,
                                wordCount::Int } deriving Show
 
+-- A word
+type Word = String
+
 maximumWordSize :: Int
 maximumWordSize = 6 
 
@@ -29,7 +32,7 @@ frequencies = foldl' (\m word -> Map.insertWith (+) word 1 m) Map.empty
 -- For a word, returns all the possible decompositions of the word.
 -- E.g., for "foobar", and list of ["foo", "bar", "foob", "fooba", "ar"]
 -- returns [["foo", "bar"], ["foob", "ar"]]
-decompose :: String -> Trie.Trie Char -> [[String]]
+decompose :: Word -> Trie.Trie Char -> [[String]]
 decompose word words = concatMap decomposeSuffix $ Trie.prefixes word words
   where
     decomposeSuffix prefix 
@@ -41,37 +44,38 @@ decompose word words = concatMap decomposeSuffix $ Trie.prefixes word words
 -- excluding too many words).
 -- This is the most heavy part of the algorithm. It's not yet fully optimized,
 -- and the solution is computed very greedily, so may not be optimal.
-filterCompositeWords :: [String] -> [String]
+filterCompositeWords :: [Word] -> [Word]
 filterCompositeWords = filterCompositeWords' . Trie.fromList
 
-filterCompositeWords' :: Trie.Trie Char -> [String]
+filterCompositeWords' :: Trie.Trie Char -> [Word]
 filterCompositeWords' words
   | maxFrequency < 2 = nonComposedWords
   | otherwise = filterCompositeWords' $ Trie.delete maxComponent words
   where 
-    decomposedWords = map (flip decompose words) (Trie.toList words)
+    decomposedWords = map (`decompose` words) (Trie.toList words)
     componentFrequencies = Map.toList $ frequencies $ concat $ concat decomposedWords
     (maxComponent, maxFrequency) = maximumBy (comparing snd) componentFrequencies
     nonComposedWords = map (head.head) $ filter (\x -> length x == 1) decomposedWords
 
 -- Higher score is worse
-score :: String -> [String] -> Int
+score :: Word -> [Word] -> Int
 score word _ = length word
 
-sortByScore :: [String] -> [String]
-sortByScore words = sortBy (comparing (flip score words)) words
+sortByScore :: [Word] -> [Word]
+sortByScore words = sortBy (comparing (`score` words)) words
 
+{-# ANN filterWords "HLint: ignore Use map once" #-}
 -- Runs the word list through a set of filters.
 -- Returns a sorted list, with the preferred words first
-filterWords :: [String] -> [String]
+filterWords :: [Word] -> [Word]
 filterWords = 
   sortByScore .
   filterCompositeWords .
   filter (all (\c -> isAscii c && isLetter c)) .
   filter (\l -> length l <= maximumWordSize) .
   Set.toList . Set.fromList .
-  (map (filter (/= '.'))) .
-  (map (map toLower))
+  map (filter (/= '.')) .
+  map (map toLower)
 
 -- Decompose a number in the list of digits for a given base
 digits :: Integral a => a -> a -> [a]
@@ -85,20 +89,20 @@ diceString :: Int -> Int -> String
 diceString rollCount i = map (intToDigit . (+1)) paddedBase6
   where
     base6 = digits 6 i
-    paddedBase6 = (replicate (rollCount - (length base6)) 0) ++ base6
+    paddedBase6 = replicate (rollCount - length base6) 0 ++ base6
 
 -- Trims a list of words to the right size, according to the mode
-trim :: Mode -> [String] -> [String]
-trim DicewareMode = take (6^5)
-trim Diceware8kMode = take (2^13)
+trim :: Mode -> [Word] -> [Word]
+trim DicewareMode = take (6^(5::Integer))
+trim Diceware8kMode = take (2^(13::Integer))
 trim AllWordsMode = id
 
 -- Takes a list of words, and prepares it for output.
 -- Trims the number of words, and adds the dice rolls in DicewareMode.
-markup :: Mode -> [String] -> [String]
+markup :: Mode -> [Word] -> [Word]
 markup DicewareMode words = zipWith (\x y -> x ++ " " ++ y) rolls $ sort words
   where
-    rollCount = ceiling $ log (fromIntegral (length words)) / log 6
+    rollCount = ceiling (logBase 6 (fromIntegral (length words)) :: Double)
     rolls = map (diceString rollCount) [0..]
 markup Diceware8kMode words = sort words
 markup AllWordsMode words = sort words
@@ -114,5 +118,5 @@ process input mode = (unlines resultWords, statistics)
       originalWordCount = length originalWords,
       filteredWordCount = length filteredWords,
       wordCount = length trimmedWords ,
-      averageWordLength = (fromIntegral (sum (map length trimmedWords))) / 
-                          (fromIntegral (length trimmedWords)) }
+      averageWordLength = fromIntegral (sum (map length trimmedWords)) / 
+                          fromIntegral (length trimmedWords) }

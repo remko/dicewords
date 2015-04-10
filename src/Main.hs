@@ -3,9 +3,11 @@ import System.Environment (getArgs)
 import System.Console.GetOpt
 import System.Exit
 import System.IO (openFile, hSetEncoding, hGetContents, IOMode(ReadMode), utf8)
+import Control.Monad (when)
 
 data Flag = Verbose | Output String | OutputMode Mode deriving (Show, Eq)
    
+{-# ANN options "HLint: ignore Use string literal" #-}
 options :: [OptDescr Flag]
 options =
   [ Option ['v'] ["verbose"] (NoArg Verbose) "print statistics"
@@ -35,9 +37,7 @@ main = do
       content <- readFile' input
       let (output, statistics) = process content outputMode
       writeFile outputFile output
-      if elem Verbose opts
-        then putStrLn $ show statistics
-        else return ()
+      when (Verbose `elem` opts) $ print statistics
 
     (_, _, errs) -> do
       putStrLn $ concat errs ++ usageInfo header options
