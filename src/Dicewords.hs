@@ -7,6 +7,7 @@ import Data.Char (isAscii, isLetter, toLower, intToDigit)
 import Data.List (unfoldr, sortBy, maximumBy, sort, foldl')
 import Data.Ord (comparing)
 import Prelude hiding (words)
+import qualified Prelude
 
 -- The output mode. DicewareMode outputs words that can be formed with 5 dice
 -- rolls, together with the corresponding dice rolls.
@@ -64,15 +65,18 @@ score word _ = length word
 sortByScore :: [Word] -> [Word]
 sortByScore words = sortBy (comparing (`score` words)) words
 
-{-# ANN filterWords "HLint: ignore Use map once" #-}
 -- Runs the word list through a set of filters.
--- Returns a sorted list, with the preferred words first
 filterWords :: [Word] -> [Word]
 filterWords = 
-  sortByScore .
   filterCompositeWords .
   filter (all (\c -> isAscii c && isLetter c)) .
-  filter (\l -> length l <= maximumWordSize) .
+  filter (\l -> length l <= maximumWordSize)
+
+{-# ANN preprocessWords "HLint: ignore Use map once" #-}
+-- Preprocess a list of words
+-- Converts words to lowercase, removes dots, and removes all duplicates
+preprocessWords :: [Word] -> [Word]
+preprocessWords =
   Set.toList . Set.fromList .
   map (filter (/= '.')) .
   map (map toLower)
@@ -107,11 +111,26 @@ markup DicewareMode words = zipWith (\x y -> x ++ " " ++ y) rolls $ sort words
 markup Diceware8kMode words = sort words
 markup AllWordsMode words = sort words
 
+-- Parses a list of wordlist file contents in it, and normalizes list
+-- (removing duplicates etc.)
+parseWords :: [String] -> [Word]
+parseWords inputs = 
+  preprocessWords $ map (head . Prelude.words) $ concatMap lines inputs
+
+-- Parses a list of wordlist file contents in it, and creates a list with
+-- candidate words
+createCandidateList :: [String] -> [Word]
+createCandidateList = filterWords . parseWords
+
+scoreList :: String -> [String] -> [(Word, Int)]
+scoreList list _ = zip words (map (`score` []) words)
+  where words = lines list
+
 process :: String -> Mode -> (String, Statistics)
 process input mode = (unlines resultWords, statistics)
   where
-    originalWords = lines input
-    filteredWords = filterWords originalWords
+    originalWords = parseWords [input]
+    filteredWords = sortByScore $ filterWords originalWords
     trimmedWords = trim mode filteredWords
     resultWords = markup mode trimmedWords
     statistics = Statistics { 

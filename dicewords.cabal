@@ -27,6 +27,18 @@ executable dicewords
   ghc-options: -Wall -fno-warn-type-defaults
   build-depends: base >=4.5, containers >=0.4
 
+executable dicewords-create-candidate-list
+  hs-source-dirs: src
+  main-is: CreateCandidateList.hs
+  ghc-options: -Wall -fno-warn-type-defaults
+  build-depends: base >=4.5, containers >=0.4
+
+executable dicewords-score-list
+  hs-source-dirs: src
+  main-is: ScoreList.hs
+  ghc-options: -Wall -fno-warn-type-defaults
+  build-depends: base >=4.5, containers >=0.4
+
 Test-Suite test
   type: exitcode-stdio-1.0
   hs-source-dirs: tests src

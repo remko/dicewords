@@ -2,7 +2,6 @@ import Dicewords
 import System.Environment (getArgs)
 import System.Console.GetOpt
 import System.Exit
-import System.IO (openFile, hSetEncoding, hGetContents, IOMode(ReadMode), utf8)
 import Control.Monad (when)
 
 data Flag = Verbose | Output String | OutputMode Mode deriving (Show, Eq)
@@ -34,7 +33,7 @@ main = do
                         [] -> DicewareMode
                         (x:_) -> x
 
-      content <- readFile' input
+      content <- readFile input
       let (output, statistics) = process content outputMode
       writeFile outputFile output
       when (Verbose `elem` opts) $ print statistics
@@ -44,8 +43,3 @@ main = do
       exitWith $ ExitFailure 1
   where
     header = "Usage: dicewords [OPTION...] input-file"
-
-    readFile' input = do
-      h <- openFile input ReadMode
-      hSetEncoding h utf8
-      hGetContents h
