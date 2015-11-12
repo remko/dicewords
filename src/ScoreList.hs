@@ -21,4 +21,6 @@ main = do
       exitWith $ ExitFailure 1
   where
     header = "Usage: dicewords-create-candidate-list input-files"
+
+    formatScore :: (String, Float) -> String
     formatScore (x, y) = x ++ " " ++ show y

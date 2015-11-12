@@ -3,8 +3,9 @@ module Dicewords where
 import qualified Trie
 import qualified Data.Set as Set
 import qualified Data.Map as Map
+import Data.Maybe (mapMaybe)
 import Data.Char (isAscii, isLetter, toLower, intToDigit)
-import Data.List (unfoldr, sortBy, maximumBy, sort, foldl')
+import Data.List (unfoldr, sortBy, minimumBy, maximumBy, sort, foldl')
 import Data.Ord (comparing)
 import Prelude hiding (words)
 import qualified Prelude
@@ -22,6 +23,7 @@ data Statistics = Statistics { averageWordLength::Float,
 
 -- A word
 type Word = String
+type Score = Float
 
 maximumWordSize :: Int
 maximumWordSize = 6 
@@ -58,12 +60,14 @@ filterCompositeWords' words
     (maxComponent, maxFrequency) = maximumBy (comparing snd) componentFrequencies
     nonComposedWords = map (head.head) $ filter (\x -> length x == 1) decomposedWords
 
--- Higher score is worse
-score :: Word -> [Word] -> Int
-score word _ = length word
+scoreLength :: (Fractional a) => [Word] -> Word -> a
+scoreLength words word = 1 - fromIntegral (length word - minimumLength) / fromIntegral (maximumLength - minimumLength)
+  where
+    maximumLength = length $ maximumBy (comparing length) words
+    minimumLength = length $ minimumBy (comparing length) words
 
 sortByScore :: [Word] -> [Word]
-sortByScore words = sortBy (comparing (`score` words)) words
+sortByScore words = sortBy (flip $ comparing (scoreLength words)) words
 
 -- Runs the word list through a set of filters.
 filterWords :: [Word] -> [Word]
@@ -78,8 +82,10 @@ filterWords =
 preprocessWords :: [Word] -> [Word]
 preprocessWords =
   Set.toList . Set.fromList .
-  map (filter (/= '.')) .
-  map (map toLower)
+  mapMaybe preprocessWord
+
+preprocessWord :: Word -> Maybe Word
+preprocessWord word = if head word == '#' then Nothing else Just $ filter (/= '.') $ map toLower word
 
 -- Decompose a number in the list of digits for a given base
 digits :: Integral a => a -> a -> [a]
@@ -122,9 +128,42 @@ parseWords inputs =
 createCandidateList :: [String] -> [Word]
 createCandidateList = filterWords . parseWords
 
-scoreList :: String -> [String] -> [(Word, Int)]
-scoreList list _ = zip words (map (`score` []) words)
-  where words = lines list
+normalizeScores :: [(Word, Score)] -> [(Word, Score)]
+normalizeScores scores = map normalizeScore scores
+    where
+      minimumScore = snd $ minimumBy (comparing snd) scores
+      maximumScore = snd $ maximumBy (comparing snd) scores
+      normalizeScore (word, score) = (word, (score - minimumScore) / (maximumScore - minimumScore))
+
+parseScoreList :: String -> [(Word, Score)]
+parseScoreList list = zipWith addScore [1, 2..] allWords
+  where
+    allWords = mapMaybe (parseScoredWord . Prelude.words) $ lines list
+    addScore index words = case words of [] -> error "Empty word"
+                                         [word] -> (word, fromIntegral index)
+                                         (word:score:_) -> (word, read score)
+
+    parseScoredWord :: [String] -> Maybe [String]
+    parseScoredWord [] = Nothing
+    parseScoredWord (x:xs) = case preprocessWord x of Just word -> Just (word:xs)
+                                                      Nothing -> Nothing
+
+-- Remove all scored words that are not in the word list
+filterScoreWords :: [Word] -> [(Word, Score)] -> [(Word, Score)]
+filterScoreWords words = filter (\(word, _) -> Set.member word wordSet)
+  where wordSet = Set.fromList words
+
+
+scoreList :: String -> [String] -> [(Word, Score)]
+scoreList list scoreLists = zip words (map score words)
+  where 
+    words = lines list
+    -- We remove the words not in the word list for scoring, to avoid outliers with irrelevant (short) words
+    scoreMaps = map (Map.fromList . normalizeScores . filterScoreWords words . parseScoreList) scoreLists
+    listScorers = map (flip (Map.findWithDefault 0)) scoreMaps
+    allScorers = listScorers
+    -- allScorers = scoreLength words:listScorers
+    score word = sum $ map ($ word) allScorers
 
 process :: String -> Mode -> (String, Statistics)
 process input mode = (unlines resultWords, statistics)
