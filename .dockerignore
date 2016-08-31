@@ -1,0 +1,5 @@
+dicewords
+dicecheck
+*.dSYM
+*.txt
+unittests
