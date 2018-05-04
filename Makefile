@@ -3,7 +3,7 @@ BOOST_INCLUDEDIR ?= $(BOOSTDIR)/include
 BOOST_LIBDIR ?= $(BOOSTDIR)/lib
 CXX=clang++
 CXXFLAGS=-O2 -std=c++14 -Wall -g -I$(BOOST_INCLUDEDIR) 
-LINKFLAGS=-L$(BOOST_LIBDIR) -lboost_regex 
+LINKFLAGS=-L$(BOOST_LIBDIR) -lboost_regex -lsqlite3
 
 LISTS=diceware-wordlist-nl.txt diceware-wordlist-8k-nl.txt diceware-wordlist-composites-nl.txt diceware-wordlist-8k-composites-nl.txt
 
@@ -14,10 +14,11 @@ ifneq ($(SIGN),)
 SIGN_ARGS=| gpg --clearsign
 endif
 COMMON_ARGS=\
-	words/nl/words.valid.txt \
-	words/nl/score.sprookjes.txt 1000 frequencies \
-	words/nl/score.leipzig-corpora.txt 2 frequencies \
-	words/nl/score.opensubtitles.txt 1 frequencies \
+	0 \
+	0 \
+	2 \
+	1 \
+	1000 \
 	$(SIGN_ARGS)
 
 diceware-wordlist-nl.txt: dicewords
