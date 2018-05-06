@@ -2,6 +2,7 @@
 
 require 'sqlite3'
 require 'unidecoder'
+require 'csv'
 
 MINIMUM_SCORE = 0.01 # Occurring in a score list counts for something
 MAXIMUM_WORD_LENGTH = 6
@@ -24,17 +25,17 @@ db.transaction
 
 # Iterate over all score files
 score_files = [
-  ["words", "words", false, false, false],
-  ["score.leipzig", "leipzig_score", false, true, false],
-  ["score.leipzig-corpora", "leipzig_corpora_score", true, true, true],
-  ["score.opensubtitles", "opensubtitles_score", true, true, false],
-  ["score.sprookjes", "sprookjes_score", true, true, false],
+  ["words.txt", "words", false, false, :word],
+  ["score.leipzig.txt", "leipzig_score", true, true, :word],
+  ["score.leipzig-corpora.txt", "leipzig_corpora_score", true, true, :score_word],
+  ["score.opensubtitles.txt", "opensubtitles_score", true, true, :word_score],
+  ["score.sprookjes.txt", "sprookjes_score", true, true, :word_score],
+  ["crr-prevalence.csv", "crr_prevalence_score", true, false, :crr_prevalence],
 ]
-score_files.each do |f, name, hasFrequencyData, includeScore, scoreFirst|
+score_files.each do |f, name, includeScore, applyLog, format|
   puts "Importing #{name}"
-  db.execute("DELETE FROM `#{name}`")
 
-  lines = File.read("words/nl/#{f}.txt").lines
+  lines = File.read("words/nl/#{f}").lines
   total = lines.length
 
   if includeScore
@@ -45,42 +46,34 @@ score_files.each do |f, name, hasFrequencyData, includeScore, scoreFirst|
         PRIMARY KEY(`word`)
       )
     SQL
+    db.execute("DELETE FROM `#{name}`")
     frequencies = Hash.new(0)
     lines.each_with_index do |line, i|
       line = line.strip
       next if skipLine?(line)
-      word = line
-      score = total - i
-      if hasFrequencyData
-        if scoreFirst
-          score, _, word = line.partition(" ")
-        else
-          word, _, score = line.rpartition(" ")
-        end
-        score = score.to_i
+      if format == :word
+        word = line
+        score = total - i
+      elsif format == :score_word
+        score, _, word = line.partition(" ")
+      elsif format == :word_score
+        word, _, score = line.rpartition(" ")
+      elsif format == :crr_prevalence
+        l = CSV.parse_line(line, col_sep: "\t")
+        word = l[0]
+        score = l[2]
       end
       word = normalizeWord(word)
+      score = score.to_f
       next if word.empty?
       frequencies[word] = frequencies[word] + score
     end
-    if hasFrequencyData
-      frequencies.each { |k,v| frequencies[k] = 1 + Math.log10(v) }
-    end
+    frequencies.each { |k,v| frequencies[k] = 1 + Math.log10(v) } if applyLog
     min, max = frequencies.values.minmax
     frequencies.each do |word, score| 
       score = MINIMUM_SCORE + (1.0 - MINIMUM_SCORE) * (score - min) / (max - min)
       db.execute("INSERT INTO `#{name}`(word, score) VALUES(?, ?)", word, score)
     end
-
-    db.execute("DROP VIEW IF EXISTS #{name}_histogram")
-    db.execute(<<-SQL)
-      CREATE VIEW `#{name}_histogram` AS
-        SELECT 
-          CAST((score*10) as int)/10.0 AS score,
-          COUNT(*) as count
-        FROM #{name}
-        GROUP BY 1
-    SQL
   else
     db.execute(<<-SQL)
       CREATE TABLE IF NOT EXISTS `#{name}` (
@@ -88,6 +81,7 @@ score_files.each do |f, name, hasFrequencyData, includeScore, scoreFirst|
         PRIMARY KEY(`word`)
       )
     SQL
+    db.execute("DELETE FROM `#{name}`")
     lines.each do |line|
       word = line.strip
       next if skipLine?(word)
@@ -118,6 +112,8 @@ db.execute(<<-SQL)
     SELECT word from leipzig_corpora_score 
     UNION 
     select word from sprookjes_score
+    UNION 
+    select word from crr_prevalence_score
 SQL
 # db.execute("CREATE VIEW `all_words` (`word`) AS SELECT word from words")
 
@@ -148,7 +144,7 @@ db.execute(<<-SQL)
 SQL
 
 db.execute("DROP VIEW IF EXISTS candidate_words")
-score_columns = ["length_score"] + score_files.select { |x| x[3] }.map{|x| x[1] }
+score_columns = ["length_score"] + score_files.select { |x| x[2] }.map{|x| x[1] }
 score_column_definitions = score_columns.map { |c| "IFNULL(#{c}.score, 0) AS #{c}" }.join(", ")
 score_join_definitions = score_columns.map { |c| "LEFT JOIN #{c} ON #{c}.word = all_valid_words.word"}.join(" ")
 db.execute(<<-SQL)
@@ -160,5 +156,17 @@ db.execute(<<-SQL)
     #{score_join_definitions} 
     WHERE length(all_valid_words.word) <= #{MAXIMUM_WORD_LENGTH}
 SQL
+
+score_columns.each do |name|
+    db.execute("DROP VIEW IF EXISTS #{name}_histogram")
+    db.execute(<<-SQL)
+      CREATE VIEW `#{name}_histogram` AS
+        SELECT 
+          min(CAST((score*10) as int)/10.0, 0.9) AS score,
+          COUNT(*) as count
+        FROM #{name}
+        GROUP BY 1
+    SQL
+end
 
 db.commit

@@ -19,6 +19,7 @@ COMMON_ARGS=\
 	2 \
 	1 \
 	1000 \
+	10 \
 	$(SIGN_ARGS)
 
 diceware-wordlist-nl.txt: dicewords
