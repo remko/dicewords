@@ -25,14 +25,15 @@ db.transaction
 
 # Iterate over all score files
 score_files = [
-  ["words.txt", "words", false, false, :word],
-  ["score.leipzig.txt", "leipzig_score", true, true, :word],
-  ["score.leipzig-corpora.txt", "leipzig_corpora_score", true, true, :score_word],
-  ["score.opensubtitles.txt", "opensubtitles_score", true, true, :word_score],
-  ["score.sprookjes.txt", "sprookjes_score", true, true, :word_score],
-  ["crr-prevalence.csv", "crr_prevalence_score", true, false, :crr_prevalence],
+  ["words.txt", "words", false, false, true, :word],
+  ["score.leipzig.txt", "leipzig_score", true, true, true, :word],
+  ["score.leipzig-corpora.txt", "leipzig_corpora_score", true, true, true, :score_word],
+  ["score.opensubtitles.txt", "opensubtitles_score", true, true, true, :word_score],
+  ["score.sprookjes.txt", "sprookjes_score", true, true, true, :word_score],
+  ["crr-prevalence.csv", "crr_prevalence_score", true, false, true, :crr_prevalence],
+  ["voornamen.csv", "voornamen_score", true, false, false, :csv],
 ]
-score_files.each do |f, name, includeScore, applyLog, format|
+score_files.each do |f, name, includeScore, applyLog, normalize, format|
   puts "Importing #{name}"
 
   lines = File.read("words/nl/#{f}").lines
@@ -62,8 +63,12 @@ score_files.each do |f, name, includeScore, applyLog, format|
         l = CSV.parse_line(line, col_sep: "\t")
         word = l[0]
         score = l[2]
+      elsif format == :csv
+        l = CSV.parse_line(line, col_sep: ",")
+        word = l[0].downcase
+        score = l[1]
       end
-      word = normalizeWord(word)
+      word = normalizeWord(word) if normalize
       score = score.to_f
       next if word.empty?
       frequencies[word] = frequencies[word] + score
