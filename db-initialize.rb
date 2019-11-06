@@ -1,5 +1,13 @@
 #!/usr/bin/env ruby
 
+# This script initializes a database from all available dataset sources.
+# Except for the word_status table (which is expensive to compute), all tables
+# are reset.
+#
+# A combined view 'candidate_words' is created with all the scores from the different
+# datasets for each word. This view is used by the 'diceware' script to determine the
+# best words.
+
 require 'sqlite3'
 require 'unidecoder'
 require 'csv'
@@ -97,14 +105,27 @@ score_files.each do |f, name, includeScore, applyLog, normalize, format|
   end
 end
 
-db.execute(<<-SQL)
-  CREATE TABLE IF NOT EXISTS `word_status` (
-    `word` TEXT NOT NULL UNIQUE, 
-    `vandale_status` INTEGER DEFAULT 0, 
-    `woordenlijst_status` INTEGER DEFAULT 0, 
-    PRIMARY KEY(`word`)
-  )
+# Initialize word_status if necessary
+s = db.execute(<<-SQL)
+  SELECT name FROM sqlite_master WHERE type='table' AND name='word_status';
 SQL
+if s.empty?
+  puts "Initializing word_status"
+  db.execute(<<-SQL)
+    CREATE TABLE IF NOT EXISTS `word_status` (
+      `word` TEXT NOT NULL UNIQUE, 
+      `vandale_status` INTEGER DEFAULT 0, 
+      `woordenlijst_status` INTEGER DEFAULT 0, 
+      PRIMARY KEY(`word`)
+    )
+  SQL
+  File.read("words/nl/word_status.csv").lines.each do |line|
+    l = CSV.parse_line(line, col_sep: ",")
+    db.execute("INSERT INTO `word_status`(word, vandale_status, woordenlijst_status) VALUES(?, ?, ?)", l[0], l[1], l[2])
+  end
+else
+  puts "word_status already exists. Leaving unchanged."
+end
 
 # Create views
 db.execute("DROP VIEW IF EXISTS all_words")

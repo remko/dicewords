@@ -43,6 +43,9 @@ dicecheck: dicecheck.cpp
 unittests: dicewords.cpp
 	$(CXX) $(CXXFLAGS) -DUNITTESTS -IVendor/catch -o $@ $< $(LINKFLAGS)
 
+export-status:
+	printf ".mode csv\n.output words/nl/word_status.csv\nSELECT word, vandale_status, woordenlijst_status FROM word_status;" | sqlite3 words.db
+
 .PHONY: clean
 clean:
 	-rm -rf diceware.nl.txt diceware.8k.nl.txt dicewords unittests *.dSYM
