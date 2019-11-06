@@ -1,9 +1,11 @@
-language: cpp
-sudo: required
-dist: trusty
-services:
-  - docker
+language: go
 before_install:
-  - docker build -t remko/dicewords .
+  - bundle install
 script:
-  - docker run remko/dicewords /bin/sh -c "cd /opt/src && make CXX=g++ check"
+  - bundle exec db-initialize.rb
+  - env GO111MODULE=on make all check
+addons:
+  apt:
+    update: true
+    packages:
+    - libsqlite3-dev

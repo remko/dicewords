@@ -1,7 +1,4 @@
-*.o
-/diceware-*.txt
-*.dSYM
 .DS_Store
-dicewords
-dicecheck
-unittests
+/diceware-*.txt
+/bin/
+*.db

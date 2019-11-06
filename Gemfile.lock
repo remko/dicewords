@@ -1,0 +1,15 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    sqlite3 (1.4.1)
+    unidecoder (1.1.2)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  sqlite3
+  unidecoder
+
+BUNDLED WITH
+   1.17.2
